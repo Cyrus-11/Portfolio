@@ -59,7 +59,8 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
     ? routeParams.slug.join("/")
     : routeParams.slug || "";
 
-  let post = getPosts(["src", "app", "blog", "posts"]).find((post) => post.slug === slugPath);
+  const posts = getPosts(["src", "app", "blog", "posts"]);
+  const post = posts.find((post) => post.slug === slugPath);
 
   if (!post) {
     notFound();
@@ -142,13 +143,15 @@ export default async function Blog({ params }: { params: Promise<{ slug: string 
             url={`${baseURL}${blog.path}/${post.slug}`} 
           />
 
-          <Column fillWidth gap="40" horizontal="center" marginTop="40">
-            <Line maxWidth="40" />
-            <Text as="h2" id="recent-posts" variant="heading-strong-xl" marginBottom="24">
-              Recent posts
-            </Text>
-            <Posts exclude={[post.slug]} range={[1, 2]} columns="2" thumbnail direction="column" />
-          </Column>
+          {posts.length > 1 && (
+            <Column fillWidth gap="40" horizontal="center" marginTop="40">
+              <Line maxWidth="40" />
+              <Text as="h2" id="recent-posts" variant="heading-strong-xl" marginBottom="24">
+                Recent posts
+              </Text>
+              <Posts exclude={[post.slug]} range={[1, 2]} columns="2" thumbnail direction="column" />
+            </Column>
+          )}
           <ScrollToHash />
         </Column>
       </Row>

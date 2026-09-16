@@ -100,6 +100,11 @@ export default async function Project({
           {post.metadata.publishedAt && formatDate(post.metadata.publishedAt)}
         </Text>
         <Heading variant="display-strong-m">{post.metadata.title}</Heading>
+        {post.metadata.link && (
+          <Button href={post.metadata.link} variant="secondary" suffixIcon="arrowUpRightFromSquare">
+            View project
+          </Button>
+        )}
       </Column>
       <Row marginBottom="32" horizontal="center">
         <Row gap="16" vertical="center">
@@ -119,7 +124,14 @@ export default async function Project({
         </Row>
       </Row>
       {post.metadata.images.length > 0 && (
-        <Media priority aspectRatio="16 / 9" radius="m" alt="image" src={post.metadata.images[0]} />
+        <Media
+          priority
+          aspectRatio="original"
+          radius="m"
+          alt={`${post.metadata.title} project cover`}
+          src={post.metadata.images[0]}
+          sizes="(max-width: 960px) 100vw, 960px"
+        />
       )}
       <Column style={{ margin: "auto" }} as="article" maxWidth="xs">
         <CustomMDX source={post.content} />

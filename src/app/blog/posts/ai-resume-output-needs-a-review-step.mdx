@@ -1,0 +1,158 @@
+---
+title: "AI resume output needs a review step"
+summary: "Design an AI resume pipeline with Zod validation, source evidence, explicit review states, versioned approval, and targeted evaluation."
+publishedAt: "2026-09-16"
+image: "/images/covers/job-pilot.png"
+tag: "AI Engineering"
+---
+
+Job Pilot brings together private resume uploads, editable profiles, extraction, user review, and PDF generation. I implemented extraction with OpenAI, structured validation with Zod, and a review step before document generation. The project is still in development.
+
+The interesting engineering problem is what happens between receiving a model response and treating that response as a user's professional history. A syntactically valid object can contain the wrong employer, merge two roles, or turn an ambiguous date into an unjustifiably precise one.
+
+The design examples below explore how I would make that boundary explicit. They extend the discussion beyond the features currently documented for Job Pilot; they are not a claim that every safeguard or evaluation described here is already implemented.
+
+## Separate extraction from rewriting
+
+Extraction asks what the document says. Rewriting asks how that information should be expressed for a purpose. Combining them too early makes it difficult to tell whether a phrase came from the source or from a generation step.
+
+For a resume, that distinction matters. "Supported API testing" and "Led the API testing strategy" are both plausible English, but they describe different responsibilities. Improving phrasing should not silently change scope, seniority, or ownership.
+
+I would preserve an extracted draft separately from any later rewrite. If users choose to improve wording, the interface should make that a deliberate step and retain enough history to explain what changed.
+
+## Treat the pipeline as a sequence of states
+
+A single loading flag is a weak model for a workflow with several independent failure points. Upload can succeed while extraction fails. Extraction can succeed while validation fails. Review can be complete while PDF generation needs to be retried.
+
+An illustrative state sequence is:
+
+```text
+uploaded
+  -> extracting
+  -> needs_review
+  -> approved
+  -> generating_pdf
+  -> ready
+
+Failures remain attached to the stage that produced them.
+A new edit creates a new draft version requiring approval.
+```
+
+Each transition needs an owner and an accepted input. A worker may produce an extraction draft, but it should not approve that draft on the user's behalf. A PDF operation should consume an approved version rather than whichever mutable profile happens to be latest.
+
+This model also clarifies retry behavior. A PDF failure should not force the user to repeat extraction or review when the approved input remains unchanged.
+
+## Use a schema to make uncertainty representable
+
+A schema is useful when it describes both what the application needs and what the source may legitimately omit. Requiring a non-empty value for every field can encourage a workflow to invent information just to satisfy its structure.
+
+Here is a simplified extraction schema. It covers only a small part of a resume and intentionally allows missing source values:
+
+```typescript
+import { z } from "zod";
+
+const ExtractedText = z.object({
+  value: z.string().min(1).nullable(),
+  sourceQuote: z.string().min(1).nullable(),
+});
+
+const ResumeDraft = z.object({
+  schemaVersion: z.literal(1),
+  fullName: ExtractedText,
+  headline: ExtractedText,
+  experience: z.array(
+    z.object({
+      employer: ExtractedText,
+      role: ExtractedText,
+      startDateText: ExtractedText,
+      endDateText: ExtractedText,
+      achievements: z.array(ExtractedText),
+    }),
+  ),
+});
+
+type ResumeDraftData = z.infer<typeof ResumeDraft>;
+
+function validateDraft(input: unknown): ResumeDraftData {
+  const result = ResumeDraft.safeParse(input);
+
+  if (!result.success) {
+    throw new Error("Extraction did not match the resume schema");
+  }
+
+  return result.data;
+}
+```
+
+Here, `input` is already parsed JSON. Invalid JSON needs its own handling before this function runs. A missing value is represented by `null`, while an empty string is rejected. The source quote gives the review interface something to compare, but it remains a claim that must be checked against the uploaded document.
+
+Zod's `safeParse` returns a result that separates validation failure from parsed data, and `z.infer` derives a TypeScript type from the schema. [Zod basic usage](https://zod.dev/basics)
+
+## Keep structural, semantic, and source checks separate
+
+Structural validation asks whether the response has the expected fields and types. Semantic checks ask whether the fields make sense together. Source checks ask whether the extracted claims are supported by the document.
+
+For example:
+
+- A role with an end date before its start date needs review.
+- A source that says only "2024" should not become "January 2024" without an explicit user decision.
+- An omitted end date should not automatically mean the role is current.
+- A claimed achievement with no matching source passage should not be treated as verified.
+
+A schema cannot resolve all of these questions by itself. I would preserve raw date text until the user or a clearly defined normalization rule can resolve it.
+
+Even finding an exact quoted substring proves only that the text exists. It does not prove that the quote belongs to the correct employer or supports the interpretation attached to it. Provenance makes inspection easier; it does not eliminate judgment.
+
+## Design the review screen around decisions
+
+A large editable text area technically permits corrections, but it does little to help someone find a subtle mistake. A more useful review flow would group information by role, show missing or ambiguous fields, and allow comparison with the relevant source text.
+
+I would prioritize details with a high cost of being wrong: names, contact information, employers, role titles, dates, qualifications, and quantitative achievements. Users should also be able to distinguish an extracted value from something they added themselves.
+
+Approval needs a precise meaning. Is the user approving every field, a particular section, or the whole draft? If the application records only a global approval flag, it should not imply that individual claims have undergone an independent verification process.
+
+## Bind approval and PDF generation to a version
+
+Consider two browser tabs. Tab A approves draft version 7. Tab B edits a role and saves version 8. If the PDF endpoint simply reads the latest profile, it can generate a document the user never approved.
+
+A small request contract can make the intended input explicit:
+
+```json
+{
+  "draftId": "draft-example",
+  "approvedVersion": 7,
+  "templateVersion": "classic-v1"
+}
+```
+
+On the server, I would verify ownership and approval for the exact draft version. The PDF job should use an immutable snapshot or another representation that cannot change underneath it. If that version is unavailable or unapproved, the operation should fail explicitly.
+
+Template versioning answers a different question: which rendering rules produced the document? Keeping content and presentation versions separate helps explain why two generated PDFs differ even when their source information is similar.
+
+## Keep uploaded documents inside a clear trust boundary
+
+Resume text is user-supplied document content. It may contain unusual formatting, hidden text, or sentences that look like instructions. The extraction workflow should treat those sentences as data to analyze, not as authority to change the application's rules or invoke unrelated actions.
+
+I would also enforce file-size and processing limits, authenticate access to stored files, and check ownership again at download and generation boundaries. A private upload followed by an unrestricted download endpoint would leave the overall workflow incomplete.
+
+Diagnostic logs should describe failures without routinely storing entire resumes. Stage, duration, schema version, document identifier, and sanitized validation paths often provide more useful operational information than copying personal history into every log entry.
+
+## Test failures without depending on model luck
+
+Stubbed responses are useful for testing application behavior around extraction. I would include valid data, malformed JSON, a structurally invalid object, absent source information, a service timeout, and a response that arrives after the user replaces the uploaded file.
+
+That last case is easy to miss: a late result must not overwrite a draft belonging to a newer document. Associating work with both document identity and version gives the application something concrete to check.
+
+These tests complement evaluation against real documents. They do not tell us how accurately a model handles a two-column resume or an employment date split across a page break.
+
+## Evaluate accuracy by failure category
+
+For a small, consented or synthetic evaluation set, I would label the source facts and compare extracted fields against them. Useful measures include the fraction of expected roles recovered, the fraction of extracted claims supported by the source, and the number of critical fields users had to correct.
+
+The denominators matter. A document with no extractable employer name should not be counted as a correct employer extraction merely because the schema accepts `null`. Missing information and incorrect information deserve separate reporting.
+
+I would keep examples of failures, not just an aggregate score. A high average can hide a recurring error on a layout used by a particular group of applicants.
+
+The review step connects these concerns to the person who owns the resume. It gives uncertainty a visible place in the workflow and keeps a polished PDF from becoming an accidental stamp of accuracy.
+
+The [Job Pilot project page](/work/job-pilot) describes the currently implemented work and links to the repository.

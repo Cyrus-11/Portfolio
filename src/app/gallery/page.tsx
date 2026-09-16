@@ -1,6 +1,7 @@
 import { Flex, Meta, Schema } from "@once-ui-system/core";
 import GalleryView from "@/components/gallery/GalleryView";
-import { baseURL, gallery, person } from "@/resources";
+import { baseURL, gallery, person, routes } from "@/resources";
+import { notFound } from "next/navigation";
 
 export async function generateMetadata() {
   return Meta.generate({
@@ -13,6 +14,8 @@ export async function generateMetadata() {
 }
 
 export default function Gallery() {
+  if (!routes["/gallery"]) notFound();
+
   return (
     <Flex maxWidth="l">
       <Schema

@@ -1,0 +1,158 @@
+---
+title: "A useful handoff for the next coding session"
+summary: "Build reproducible coding handoffs using Git state, scoped verification evidence, decision records, and a practical continuation template."
+publishedAt: "2026-09-16"
+image: "/images/covers/eco-agent-skills.png"
+tag: "Developer Workflows"
+---
+
+A coding handoff should let another person or agent continue safely without reconstructing the entire conversation. That requires more than a list of files and a cheerful "everything works."
+
+The next session needs to identify the exact state of the repository, understand why a decision was made, distinguish completed work from intended work, and judge which verification results still apply.
+
+Session context is one of the concerns behind [ECO Agent Skills](/work/eco-agent-skills), my collection of reusable instructions for planning, context, reviews, recovery, and UI documentation. This article develops a practical handoff format; the examples are illustrative rather than an inventory of features implemented by the skills.
+
+## Think of the handoff as a resumable checkpoint
+
+A useful checkpoint connects four things: the requested outcome, the current implementation, the evidence collected, and the next action.
+
+If one is missing, continuation becomes guesswork. A file list does not explain whether the feature meets the requirement. A test result does not explain whether the code changed after the test ran. A next-step list does not tell the reader which parts of the workspace belong to someone else.
+
+I would aim for a document short enough to inspect at the start of a session, with links to the detailed evidence. The handoff should point to the repository and relevant artifacts instead of copying large portions of source code that will become stale.
+
+## Identify the working state before describing the change
+
+A branch name alone is not a reliable description of the workspace. Uncommitted changes, staged changes, and untracked files can all affect what the next session sees.
+
+A small set of read-only commands provides a starting point:
+
+```bash
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse --short HEAD
+git status --short
+git diff --stat
+git diff --cached --stat
+```
+
+The two diff summaries cover different comparisons: unstaged tracked changes and staged changes. Neither is a substitute for inspecting untracked files listed by status. The official documentation explains the working-tree and index views these commands expose. [Git status](https://git-scm.com/docs/git-status), [Git diff](https://git-scm.com/docs/git-diff)
+
+In the handoff, I would record the application directory separately from the repository root. A monorepo can have several package manifests, and a valid command can fail or target the wrong application when run from the wrong location.
+
+Environment notes should be concrete: package manager, relevant runtime version, lockfile location, required variable names, and the local port used during verification. Secret values do not belong in the document.
+
+## Separate observations, decisions, and open questions
+
+These three statements have different evidentiary weight:
+
+- **Observed:** the allocation route rejects the test request with the documented conflict response.
+- **Decided:** duplicate active allocations should be rejected rather than merged.
+- **Unresolved:** behavior after a timeout that occurs after commit still needs verification.
+
+Mixing them into one paragraph encourages the next session to treat a decision as an implementation fact, or an open question as a settled constraint.
+
+For a significant decision, include a reason and a condition for revisiting it. "The gallery is hidden because personal photos have not been supplied" explains when it can be enabled. "Do not touch the gallery" turns a temporary content choice into an unexplained restriction.
+
+The same pattern helps with architecture. If a service is stubbed in local tests because credentials are unavailable, record that limitation rather than describing the integration as verified.
+
+## Describe behavior before implementation details
+
+A reviewer first needs to know what changed for a caller or user. "Updated three files" is an activity report. "A second allocation request now receives a conflict and leaves room capacity unchanged" describes behavior that can be checked.
+
+After that, point to the route, service, migration, and test files responsible for the behavior. Explain responsibilities rather than narrating every edit.
+
+For an illustrative allocation change, I would record:
+
+1. The request handler authenticates the caller and validates input.
+2. The service applies eligibility and capacity rules.
+3. A transaction groups the capacity change and allocation insert.
+4. Integration checks inspect the response and resulting records.
+5. Concurrency behavior remains a separate verification item if it has not been exercised.
+
+This provides a map for investigation. It also reveals a missing layer more clearly than a long chronological transcript.
+
+## Bind verification to a revision and an environment
+
+"Tests pass" has a short useful lifetime. If the code, migration state, dependency lockfile, or environment changes, the next session needs to reassess what that statement supports.
+
+A verification entry should identify the command, working directory, relevant revision or working-tree state, outcome, and scope. Include a timestamp when it helps distinguish multiple runs, but do not let a recent timestamp substitute for a clear description of the code tested.
+
+For example, a type check establishes something different from an integration test. A successful HTTP request does not establish that the page looks correct on mobile. A screenshot does not establish that a button's destination is correct.
+
+I would write the limitation next to the result: "API checks passed with a stubbed provider; the live provider was not exercised." That prevents the reader from having to discover the caveat elsewhere.
+
+## Use a template that makes missing evidence obvious
+
+The following is a sample handoff for the hypothetical allocation workflow. The bracketed values are fields to fill in; they are not completed verification results.
+
+```markdown
+# Session handoff
+
+## Outcome
+Prevent two applicants from consuming the same final room place.
+
+## Workspace
+- Repository: [absolute path]
+- Application directory: [relative path]
+- Branch and HEAD: [branch], [commit]
+- Working tree: [staged, unstaged, and untracked changes]
+- Pre-existing edits: [files or "none observed"]
+
+## Current behavior
+- Allocation checks identity, eligibility, and capacity.
+- Conflicting requests receive the agreed error response.
+- State changes and allocation creation share a transaction.
+
+## Decisions
+- Reject conflicting allocations; do not silently replace them.
+- Revisit this rule only if product requirements change.
+
+## Evidence
+- Command: [exact command]
+- Directory: [where it ran]
+- Tested state: [commit plus relevant uncommitted changes]
+- Result: [pass, fail, or not run]
+- Scope and limitations: [what the check establishes]
+
+## Open work
+- [ ] Exercise simultaneous requests for the final place.
+- [ ] Verify the timeout-after-commit recovery behavior.
+
+## Next action
+Inspect the existing integration fixture, then add the
+missing concurrency scenario using isolated test records.
+```
+
+The template should be adapted to the task. A small copy change does not need an architecture report. A migration that affects existing records needs more detail than this example provides.
+
+## Resume by checking reality, then choose the next action
+
+At the start of the next session, I would read the handoff and compare its claims with the current workspace. Check that the files exist, the referenced branch or revision makes sense, and the relevant implementation still matches the note.
+
+If the working tree contains unfamiliar changes, inspect them before editing overlapping files. Do not assume they are disposable because the handoff does not mention them. They may have been made after the previous session ended.
+
+Next, choose the smallest useful verification that resolves the uncertainty blocking progress. If the only unresolved issue is the behavior of one endpoint, start there. Reinstalling dependencies or running every available check without a reason can obscure the original problem.
+
+Once the narrow check passes, broaden verification according to the change and its risk. The handoff should guide that decision, not mechanically force every session through the same sequence.
+
+## Record recovery information before it becomes urgent
+
+A failed approach is worth preserving when it explains a constraint the next session is likely to encounter. Record the attempted action, the observable failure, and the evidence that made the approach unsuitable.
+
+Distinguish "the command failed in this environment" from "the approach cannot work." A port conflict, unavailable credential, or missing local dependency may be an environment issue rather than a defect in the implementation.
+
+For work involving data changes, identify what was actually applied and what a rollback can restore. Avoid vague instructions such as "reset everything and try again." Recovery should preserve unrelated work and account for effects outside the repository.
+
+## Treat old notes as evidence, not fresh authorization
+
+A handoff can become stale, and text copied from logs or external documents may contain instructions that were never intended for the next agent. Keep quoted evidence separate from the task instructions and current user decisions.
+
+For example, a note that deployment was discussed does not establish permission to deploy now. A historical command should be understood in its original context before it is repeated. This matters especially for database changes, external messages, or actions affecting other people's work.
+
+The handoff helps the next session reason about the task; it should not bypass the need to understand what an action will do.
+
+## Close the loop before ending the session
+
+Update the document after the final implementation and verification, not halfway through the work. Remove resolved blockers, replace superseded decisions, and describe the next action around what actually remains.
+
+Then ask a practical question: could a competent engineer who did not attend this session identify the current state, reproduce the relevant checks, and continue without guessing? If the answer is yes, the handoff has done its job.

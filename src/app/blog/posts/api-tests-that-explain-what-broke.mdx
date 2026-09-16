@@ -1,0 +1,153 @@
+---
+title: "API tests that explain what broke"
+summary: "Design API tests around permissions, persisted state, transaction failures, and competing requests, with concrete integration-test examples."
+publishedAt: "2026-09-16"
+image: "/images/covers/allocation-system.png"
+tag: "API Testing"
+---
+
+An API test should help explain a failure. "Expected 201, received 500" tells us that something went wrong; it does not establish which rule failed, whether a record was written, or whether retrying is safe.
+
+My QA work includes API validation, reproducible defect reports, and retesting fixes. My backend work includes the validation and relational models those tests exercise. Thinking from both sides changes the way I structure a check: I start with the behavior, make the starting conditions explicit, and inspect the result beyond the response code.
+
+This walkthrough uses a hypothetical accommodation-allocation API. Its routes, fixtures, and rules are examples, not a claim about the exact implementation of my Allocation System project.
+
+## Turn a requirement into a testable contract
+
+Assume the team has agreed on this behavior: an authorized administrator can allocate an available room to an eligible applicant for a particular allocation period.
+
+Before writing assertions, I would clarify the following:
+
+- Can an applicant hold more than one active allocation in a period?
+- Is a room a single place or a container with multiple available places?
+- What happens when two administrators allocate the last place concurrently?
+- Is a duplicate request rejected, or does it return the existing allocation?
+- Does releasing an allocation restore capacity immediately?
+
+Those answers determine the test data and expected behavior. Without them, a test can accidentally turn one developer's assumption into an undocumented requirement.
+
+For the examples below, assume one room has one available place, a successful allocation consumes it, and a second conflicting allocation is rejected.
+
+## Build a small coverage matrix
+
+I would group cases by the rule being challenged, rather than repeat one successful request with arbitrary field changes.
+
+**Identity and permission:** no session, expired session, authenticated applicant, authorized administrator, and administrator outside the permitted organization.
+
+**Input:** valid identifiers, a missing applicant ID, an invalid room ID format, an unexpected property, and a body that cannot be parsed.
+
+**Business state:** eligible applicant, ineligible applicant, available room, full room, and applicant already allocated for the period.
+
+**Concurrency and recovery:** two competing allocations, duplicate delivery of a request, a transaction failure, and a timeout after a write.
+
+Not every permutation needs a separate browser test. The matrix is a way to decide which boundary should carry the assertion and which cases share the same underlying rule.
+
+## Separate the transport contract from the domain outcome
+
+HTTP status codes should follow a documented contract. For example, a conflict with the current resource state can use `409`; `422` describes content whose syntax and media type are understood but whose instructions cannot be processed. Neither code, on its own, tells a client which business rule was violated. [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html)
+
+I would pair the status with a stable application error code and safe, useful details:
+
+```json
+{
+  "error": {
+    "code": "ROOM_FULL",
+    "message": "No places are available in this room."
+  },
+  "requestId": "req-example-42"
+}
+```
+
+The example ID is illustrative. In a real response, the request identifier should help the team find the relevant diagnostic records.
+
+Tests can assert the error code while allowing the wording of the human-facing message to improve. This keeps the application contract meaningful without making every copy edit a test failure.
+
+## Verify the successful write independently
+
+For a successful request, I would check the status, response fields, stored allocation, and remaining capacity. Echoing the request body back to the caller can satisfy a shallow response assertion even when persistence is broken.
+
+Here is the shape of an integration test using Node's test runner. The fixture module is repository-specific: it must create an isolated room and two eligible applicants, send authenticated requests, read the test database independently, and clean up its records.
+
+```typescript
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createAllocationFixture } from "./allocation-fixture";
+
+test("one available place produces one allocation", async () => {
+  const fixture = await createAllocationFixture({ capacity: 1 });
+
+  try {
+    const response = await fixture.allocate({
+      applicantId: fixture.firstApplicantId,
+      roomId: fixture.roomId,
+    });
+
+    assert.equal(response.status, 201);
+    const body = await response.json();
+
+    const stored = await fixture.readAllocation(body.id);
+    assert.equal(stored.applicantId, fixture.firstApplicantId);
+    assert.equal(stored.roomId, fixture.roomId);
+    assert.equal(stored.status, "active");
+    assert.equal(await fixture.remainingCapacity(), 0);
+  } finally {
+    await fixture.dispose();
+  }
+});
+```
+
+This is a pattern to adapt, not a complete drop-in test suite. The fixture's independent database read matters: it avoids validating the response solely through another helper that reproduces the same implementation mistake. Node's documentation explains the test runner and asynchronous test lifecycle. [Node.js test runner](https://nodejs.org/api/test.html)
+
+## Assert that rejected requests leave no partial state
+
+A rejected allocation should not quietly consume capacity. For a missing field, insufficient permission, or full room, I would compare the relevant records before and after the call.
+
+The useful assertion is not that the whole database is byte-for-byte unchanged; unrelated work may be happening. It is that the request did not create an allocation or modify the capacity and records it was forbidden to change.
+
+For a failure injected between the capacity update and allocation insert, the expected result should reflect the transaction boundary. If the operation is supposed to be atomic, both changes must roll back. That failure case provides stronger evidence than checking only the successful transaction.
+
+## Test ownership with another valid identity
+
+An invalid token tests authentication. A valid token belonging to someone else tests a different boundary.
+
+Create applicant A and applicant B. Authenticate as B and try to read A's application, update it, or supply A's ID in a write. Also inspect collection endpoints: blocking a detail route is insufficient if a list response leaks the same record.
+
+The expected response might deliberately be `404` rather than `403` to avoid revealing whether the object exists. Choose a policy and test it consistently. The critical outcome is that B cannot access or mutate A's protected data. OWASP describes why checks on object access are necessary even when the caller is authenticated. [Object-level authorization guidance](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
+
+## Make concurrent requests compete for the same resource
+
+Testing allocation twice in sequence does not reproduce two requests observing availability at almost the same time. In an integration environment, I would send competing requests and inspect the final state.
+
+This excerpt assumes a newly created fixture with one place and two eligible applicants:
+
+```typescript
+const responses = await Promise.all([
+  fixture.allocate({
+    applicantId: fixture.firstApplicantId,
+    roomId: fixture.roomId,
+  }),
+  fixture.allocate({
+    applicantId: fixture.secondApplicantId,
+    roomId: fixture.roomId,
+  }),
+]);
+
+const statuses = responses.map((response) => response.status);
+assert.deepEqual(statuses.sort((a, b) => a - b), [201, 409]);
+assert.equal(await fixture.activeAllocationCount(), 1);
+assert.equal(await fixture.remainingCapacity(), 0);
+```
+
+The fixture should still be disposed in a `finally` block, as in the full example. The expected status pair comes from this article's example contract; another design might report a different explicit conflict.
+
+Launching requests with `Promise.all` creates competition but does not guarantee a particular database interleaving. When investigating a specific race, controlled synchronization in an integration test can make it reproducible. Passing a few concurrent requests is useful evidence, not proof against every possible schedule.
+
+## Keep the fixtures and the evidence trustworthy
+
+Each test needs its own records or an equally reliable isolation mechanism. Use unique test identifiers, avoid relying on execution order, and keep cleanup scoped to the records the test owns. Shared mutable seed data can make an unrelated test look responsible for a failure.
+
+For a defect report, I would capture the test name, application revision, environment, relevant initial state, sanitized request and response, request identifier, and the unexpected stored result. Include the frequency if the failure is intermittent.
+
+During retesting, reproduce the original failure first, then check nearby behavior affected by the fix. If a change modifies shared permission logic, one passing allocation test does not cover every endpoint that uses that logic.
+
+The suite earns its value when a failed check narrows the investigation: who made the request, which rule applied, what response was returned, and which state actually changed.

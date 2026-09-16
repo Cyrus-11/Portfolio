@@ -26,7 +26,11 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env*
+!.env.example
+
+# local resume source used to author the public portfolio content
+/*Resume_Draft*.md
 
 # vercel
 .vercel

@@ -1,0 +1,37 @@
+---
+title: "Job Pilot"
+publishedAt: "2026-09-16"
+summary: "A resume workflow with private file storage, AI-assisted extraction, editable profiles, and PDF generation. In development."
+image: "/images/covers/job-pilot-dashboard.png"
+link: "https://github.com/Cyrus-11/Job_Pilot"
+images:
+  - "/images/covers/job-pilot-dashboard.png"
+---
+
+## Overview
+
+Job Pilot brings resume uploads, profile editing, and document generation into one workflow. It is in development, with authentication, private resume storage, extraction, user review, and PDF generation implemented.
+
+**Stack:** Next.js, TypeScript, InsForge, OpenAI API, Zod, and React PDF.
+
+## What I built
+
+- Authentication and editable profiles using InsForge.
+- Private resume upload and download workflows.
+- Resume extraction with OpenAI and structured output validation with Zod.
+- A review step where users can check extracted information.
+- PDF generation with React PDF.
+
+## Keeping the user in the review loop
+
+Extracting text is only part of a useful resume workflow. The resulting information also needs a consistent structure and an opportunity for the user to review it. Job Pilot combines schema validation with user review before generating a document.
+
+The distinction matters: validating the shape of an AI response does not establish that every extracted detail is correct. The review step gives the user a place to check the content.
+
+## Testing
+
+I added tests around authentication, profiles, and resumes, including route checks with stubbed services. These checks exercise application behavior while keeping external service responses controlled.
+
+## Current state
+
+Job Pilot remains in development. This page describes the implemented workflows; it does not represent a finished public launch.

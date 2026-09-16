@@ -1,0 +1,130 @@
+---
+title: "Building reliable software from API to release"
+summary: "A technical walkthrough of invariants, state transitions, authorization, concurrency, retries, testing boundaries, and release readiness."
+publishedAt: "2026-09-16"
+image: "/images/covers/fintech-banking-app.png"
+tag: "Engineering & QA"
+---
+
+My work spans backend engineering and quality assurance: building authentication, order, and vendor APIs, and testing workflows in financial systems. That combination has made me interested in the boundaries where individually reasonable components produce an incorrect result together.
+
+A request can pass validation and still update the wrong record. Two requests can each appear valid and compete for the same resource. A deployment can pass its tests while an older client still depends on a field that has been removed.
+
+This article follows a hypothetical laundry-order workflow from requirements to release. It is a design walkthrough informed by my experience, not a description of XpressDrop's internal architecture.
+
+## Define the invariant before the endpoint
+
+An invariant is a condition that must remain true as the system changes. For an order workflow, I would start with a few explicit rules:
+
+- A customer can read only orders they are permitted to access.
+- An order can move only through agreed state transitions.
+- A successful state change and its audit record must agree.
+- Repeating an operation must have a defined outcome.
+
+These statements are more useful than "the order endpoint works" because each identifies something an implementation can violate. They also expose product questions early. Can a customer cancel after pickup? Can a vendor reject an accepted order? Which actions require an administrator?
+
+I would resolve those questions with the team before turning assumptions into database fields or controller branches. The result should be a small behavior contract that engineering, QA, and client developers can all read.
+
+## Make state transitions visible in code
+
+A status stored as an unrestricted string invites inconsistent interpretations. The interface might allow an action that the backend rejects, or two endpoints might implement different transition rules.
+
+Here is a deliberately small TypeScript model for an illustrative workflow:
+
+```typescript
+type OrderStatus =
+  | "submitted"
+  | "accepted"
+  | "collected"
+  | "completed"
+  | "cancelled";
+
+const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
+  submitted: ["accepted", "cancelled"],
+  accepted: ["collected", "cancelled"],
+  collected: ["completed"],
+  completed: [],
+  cancelled: [],
+};
+
+function canTransition(from: OrderStatus, to: OrderStatus): boolean {
+  return transitions[from].includes(to);
+}
+```
+
+This function answers one question: is the transition permitted by the workflow? It does not establish who may perform it, whether the record exists, or whether another request has already changed the status.
+
+Keeping those questions separate makes a review more precise. A unit test can exercise the transition model quickly, while an integration test checks authorization and persistence around it. Runtime input validation is still necessary because an HTTP request does not become trustworthy simply because application code uses TypeScript.
+
+## Put authorization next to the resource decision
+
+Checking that a JWT is valid establishes an authenticated identity under the application's token policy. It does not automatically establish permission to read or update an arbitrary order.
+
+For a customer-facing operation, the backend must evaluate the relationship between the caller and the requested record. A vendor operation may need a different policy. Administrative access should be an explicit branch of the policy, rather than a side effect of omitting an ownership condition.
+
+This distinction is the concern behind OWASP's guidance on object-level authorization: endpoints accepting object identifiers need authorization checks on the objects being accessed. [OWASP API1:2023](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
+
+A useful review question is: if I replace this order ID with another valid order ID, what prevents the same authenticated request from operating on someone else's data? The answer needs to exist on the server.
+
+## Protect the write against a stale decision
+
+Suppose one request reads an order as `accepted` and another cancels it before the first request writes `collected`. A transition check performed only against the earlier read can approve a decision that is no longer valid.
+
+One approach is an optimistic update: write only if the record still has the version the operation inspected. The following is a PostgreSQL-style example, with parameters supplied by the database client:
+
+```sql
+UPDATE orders
+SET status = $1,
+    version = version + 1
+WHERE id = $2
+  AND version = $3
+  AND status = $4
+RETURNING id, status, version;
+```
+
+The service first authorizes the caller and validates the proposed transition. It then supplies the new status, record ID, observed version, and observed status. If no row is returned, the service must not report that the transition succeeded. The record may have changed or disappeared; the application needs a deliberate conflict-handling path.
+
+If an audit event must accompany the change, I would put the update and audit insertion in the same database transaction. That groups their database effects into an all-or-nothing operation. A transaction alone does not replace a concurrency strategy; the isolation level and the statements inside it still matter. [PostgreSQL transaction documentation](https://www.postgresql.org/docs/current/tutorial-transactions.html)
+
+## Decide what happens when the client retries
+
+A timeout describes what the caller observed. It does not prove that the server failed to commit the operation.
+
+For an order-creation API, blindly retrying after a lost response can create a second order. One design option is an application-level idempotency key, scoped to the authenticated customer and operation. The server records the key, a representation or hash of the accepted request, and the outcome.
+
+A complete design needs answers for concurrent requests using the same key, a reused key with different content, a request still in progress, and key expiry. Simply looking up a key before inserting an order leaves a race unless the database also enforces the relevant uniqueness rule.
+
+I would test "the server committed but the response was lost" separately from "the server rejected the request before writing." The user sees a failure in both cases, but the safe recovery behavior differs.
+
+## Test at the boundary where a failure can occur
+
+I would divide verification by the question it answers:
+
+- **Unit checks:** Are the permitted state transitions and validation rules correct?
+- **Database integration checks:** Does a stale version prevent a write, and does an audit insertion failure roll back the order change?
+- **API checks:** Are authentication, authorization, request parsing, and error responses connected correctly?
+- **A focused user journey:** Can a user perform the important workflow through the interface?
+
+A large collection of mocked controller tests cannot demonstrate that a database constraint exists. Conversely, driving every validation permutation through a browser makes small failures slower to diagnose.
+
+For browser checks, visible behavior and isolated test setup are useful defaults. They reduce unnecessary dependence on internal component structure and shared state. [Playwright testing guidance](https://playwright.dev/docs/best-practices)
+
+## Make failures traceable without logging everything
+
+A useful operational record might include a request ID, operation name, order identifier under an appropriate access policy, outcome, duration, and application version. It should help connect an API failure to the relevant service and database activity.
+
+I would avoid logging full authorization headers, customer addresses, or complete request bodies as a shortcut. More data does not automatically make an incident easier to understand.
+
+I also distinguish an invalid request, a permission denial, a state conflict, and a dependency failure. They may all prevent the action, but they suggest different responses from the client and different investigations from the team.
+
+## Release the change with a recovery plan
+
+The last boundary is deployment. If an API response changes, I want to know whether deployed clients can still consume it. If a database migration adds a required field, I want to know how existing records and older application instances behave during the rollout.
+
+For a risky schema change, I would consider introducing the new representation while retaining compatibility, migrating existing data, switching readers and writers, and removing the old representation only after it is no longer needed. The exact sequence depends on the deployment model and migration tooling.
+
+My release evidence would identify the commit tested, the important workflows exercised, unresolved defects, migration status, and what rollback can actually restore. Reverting application code does not necessarily reverse a destructive data migration.
+
+The practical result is a chain of explicit decisions: a requirement becomes an invariant, the invariant shapes the write path, tests challenge the likely failure modes, and the release plan accounts for the environment in which the code will run.
+
+For a closer look at the testing side, see [API tests that explain what broke](/blog/api-tests-that-explain-what-broke).
