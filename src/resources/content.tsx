@@ -65,7 +65,7 @@ const home: Home = {
   },
   subline: (
     <>
-      I'm {person.firstName}, a {person.role.toLowerCase()} and QA engineer who builds
+      I'm {person.firstName}, a {person.role.toUpperCase()} and QA engineer who builds
       backend APIs and tests <br /> financial systems turning requirements into
       maintainable, well-tested software.
     </>
