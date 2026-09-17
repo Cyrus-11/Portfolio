@@ -65,7 +65,9 @@ jest, postman, openai, swagger, cypress, sequelize, githubactions, vercel.
 
 ## Current state and remaining work
 
-1. **Avatar** — replace `public/images/avatar.jpg` with the user's real photo.
+1. **Avatar (done)** — `public/images/avatar-cecil.png` is an identity-preserving
+   headshot generated from the user's supplied photo, with a black shirt and black cap.
+   `person.avatar` points to it. The prompt is recorded in `docs/avatar.md`.
 2. **Work projects (done)** — Replaced the template MDX files with Job Pilot, ECO Agent
    Skills, StatusFlow AI, Fintech Banking App, Allocation System, and XpressDrop. Content
    comes from the resume; Job Pilot and StatusFlow AI are explicitly in development.
