@@ -44,6 +44,23 @@ export default function Home() {
       />
       <Column fillWidth horizontal="center" gap="m">
         <Column maxWidth="s" horizontal="center" align="center">
+          {home.availability?.display && (
+            <RevealFx fillWidth horizontal="center" paddingTop="16" paddingBottom="4">
+              <Badge
+                background="brand-alpha-weak"
+                paddingX="12"
+                paddingY="4"
+                onBackground="neutral-strong"
+                textVariant="label-default-s"
+                arrow={false}
+              >
+                <Row paddingY="2" vertical="center" gap="8">
+                  <span className="status-dot" aria-hidden="true" />
+                  {home.availability.label}
+                </Row>
+              </Badge>
+            </RevealFx>
+          )}
           {home.featured.display && (
             <RevealFx
               fillWidth

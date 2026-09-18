@@ -107,6 +107,13 @@ export interface Home extends BasePageConfig {
   };
   /** The sub text which appears below the headline */
   subline: React.ReactNode;
+  /** Availability status indicator shown on the home hero */
+  availability?: {
+    /** Whether to display the availability indicator */
+    display: boolean;
+    /** Label shown next to the status dot */
+    label: React.ReactNode;
+  };
 }
 
 /**
@@ -213,6 +220,22 @@ export interface About extends BasePageConfig {
         /** Image height ratio */
         height: number;
       }>;
+    }>;
+  };
+  /** Highlights section showcasing key metrics/achievements as large numbers */
+  highlights?: {
+    /** Whether to display the highlights section */
+    display: boolean;
+    /** Title for the highlights section */
+    title: string;
+    /** List of highlight metrics */
+    items: Array<{
+      /** The headline value, e.g. "10K+", "-78%", "99.95%" */
+      value: string;
+      /** Description of what the value represents */
+      description: React.ReactNode;
+      /** Optional short tags shown below the description, e.g. ["Redis", "Caching"] */
+      tags?: string[];
     }>;
   };
 }

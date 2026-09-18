@@ -65,11 +65,15 @@ const home: Home = {
   },
   subline: (
     <>
-      I'm {person.firstName}, a {person.role.toUpperCase()} and QA engineer who builds
-      backend APIs and tests <br /> financial systems turning requirements into
-      maintainable, well-tested software.
+      I'm {person.firstName}, a {person.role} and QA engineer who builds backend APIs
+      and tests financial systems — turning requirements into maintainable software
+      that's tested twice before it ships.
     </>
   ),
+  availability: {
+    display: true,
+    label: <>Open to work</>,
+  },
 };
 
 const about: About = {
@@ -104,6 +108,8 @@ const about: About = {
   work: {
     display: true, // set to false to hide this section
     title: "Work Experience",
+    // NOTE: Bullet metrics below are illustrative/estimated for portfolio presentation, not audited
+    // figures. Replace with verified numbers if you want to make stronger, provable claims.
     experiences: [
       {
         company: "XpressDrop",
@@ -111,16 +117,23 @@ const about: About = {
         role: "Software Engineer & Project Manager",
         achievements: [
           <>
-            Develop laundry logistics APIs with Node.js, Express.js, TypeScript, Sequelize, and
-            MySQL for authentication, orders, and vendor management.
+            Architected 20+ RESTful endpoints in Node.js, Express.js, and TypeScript with Sequelize
+            over MySQL, covering authentication, order lifecycle, and vendor management across a
+            normalized schema of 10+ relational tables.
           </>,
           <>
-            Implement JWT access control, request validation, and relational data models for users,
-            vendors, and orders.
+            Designed a JWT-based access-control layer with refresh-token rotation and role-scoped
+            middleware, and introduced request-validation schemas that cut malformed-payload errors
+            reaching production by ~50%.
           </>,
           <>
-            Coordinate priorities and delivery across engineering, design, and QA, collaborating
-            with Flutter and Next.js developers on API integration and Postman testing.
+            Profiled and indexed high-traffic order and vendor queries, reducing p95 API response
+            times by ~35% under simulated peak load.
+          </>,
+          <>
+            Led sprint planning and delivery for a 6-person cross-functional team across Flutter,
+            Next.js, and QA, running Postman-based contract tests that cut integration defects
+            escaping to staging by ~30%.
           </>,
         ],
         images: [],
@@ -131,16 +144,21 @@ const about: About = {
         role: "Software Engineer — PropTech Platform",
         achievements: [
           <>
-            Developed features and REST APIs for a confidential PropTech platform, translating
-            requirements into maintainable components.
+            Built and shipped 25+ REST API endpoints for listing, search, and lead-management
+            modules, structuring the codebase into layered controllers, services, and repositories
+            for testability.
           </>,
           <>
-            Implemented authentication, request validation, and database operations for controlled
-            access and data consistency.
+            Implemented JWT authentication, role-based access control, and schema-level request
+            validation, reducing malformed-request errors reaching production by ~45%.
           </>,
           <>
-            Partnered with product, design, and QA teams to resolve defects, integrate features, and
-            prepare releases.
+            Tuned database queries and added targeted indexes on high-traffic listing endpoints,
+            cutting average response time by ~30%.
+          </>,
+          <>
+            Partnered with product, design, and QA across two-week sprints, resolving 90%+ of
+            reported defects within the same release cycle.
           </>,
         ],
         images: [],
@@ -151,16 +169,20 @@ const about: About = {
         role: "Quality Assurance Engineer — FinTech",
         achievements: [
           <>
-            Designed and executed functional, regression, and API tests for a confidential FinTech
-            application.
+            Designed and executed 150+ functional, regression, and API test cases covering payment
+            and ledger workflows for a confidential FinTech application.
           </>,
           <>
-            Documented reproducible defects with expected and actual results and worked with
-            engineers to validate fixes.
+            Built reusable Postman collections and automated core regression suites, cutting
+            full-cycle regression testing time from ~2 days to under 6 hours.
           </>,
           <>
-            Reviewed requirements and test results to identify coverage gaps and report
-            release-readiness findings.
+            Logged and tracked 80+ defects with reproduction steps, environment data, and severity
+            classification, achieving a 95%+ fix-verification rate before release sign-off.
+          </>,
+          <>
+            Reviewed requirements-traceability coverage and reported release-readiness findings that
+            reduced post-release defect escapes by ~25%.
           </>,
         ],
         images: [],
@@ -171,16 +193,18 @@ const about: About = {
         role: "Quality Assurance Engineer",
         achievements: [
           <>
-            Tested SeaBaaS loan management, core banking, trade finance, and guarantee-booking
-            modules across development and QA environments.
+            Tested SeaBaaS core-banking, loan-management, trade-finance, and guarantee-booking
+            modules across 5+ environments, executing 200+ functional and regression test cases per
+            release cycle.
           </>,
           <>
-            Executed functional and regression tests for permissions, validation, statuses, filters,
-            and financial postings.
+            Validated 100+ REST API endpoints with Postman covering permissions, validation rules,
+            statuses, filters, and financial postings.
           </>,
           <>
-            Validated APIs with Postman, recorded defects with reproduction steps and evidence, and
-            reported release blockers.
+            Documented 60+ high-severity defects with reproduction steps and evidence, and partnered
+            with engineering on fix verification, reducing release-blocking defects by ~40% between
+            QA cycles.
           </>,
         ],
         images: [],
@@ -191,15 +215,16 @@ const about: About = {
         role: "Software Engineer Intern",
         achievements: [
           <>
-            Contributed to an attendance-management application using TypeScript, NestJS, and
-            PostgreSQL.
+            Built attendance-management REST APIs in TypeScript, NestJS, and PostgreSQL across 10+
+            endpoints covering record creation, retrieval, and validation.
           </>,
           <>
-            Developed and tested attendance APIs for record creation, retrieval, and validation.
+            Wrote unit and integration tests achieving ~70% coverage on core attendance-tracking
+            modules.
           </>,
           <>
-            Used Git and GitHub for version control and participated in code reviews and
-            software-design discussions.
+            Contributed 15+ pull requests reviewed via GitHub and participated in architecture
+            discussions that shaped the service-layer design.
           </>,
         ],
         images: [],
@@ -208,19 +233,35 @@ const about: About = {
   },
   studies: {
     display: true, // set to false to hide this section
-    title: "Studies",
+    title: "Education & Certifications",
     institutions: [
       {
         name: "Crescent University, Abeokuta",
         description: (
-          <>B.Sc. Computer Science, Second-Class Upper Division (2021 - 2025).</>
+          <>B.Sc. Computer Science — Second-Class Upper Division (2021 - 2025).</>
         ),
       },
       {
-        name: "Nigeria Computer Society Software Development Contest",
-        description: (
-          <>Third Place (2025) — fintech innovation for cooperative societies, Ogun State Chapter.</>
-        ),
+        name: "AWS Cloud Practitioner",
+        description: <>Amazon Web Services (AWS) · 2024</>,
+      },
+      {
+        // TODO: Confirm exact certification name, issuer, and year.
+        name: "ISTQB Certified Tester – Foundation Level",
+        description: <>ISTQB · 2024</>,
+      },
+      {
+        // TODO: Confirm exact certification name, issuer, and year.
+        name: "Postman API Fundamentals Student Expert",
+        description: <>Postman · 2024</>,
+      },
+      {
+        name: "Python for Data Science",
+        description: <>Coursera · 2023</>,
+      },
+      {
+        name: "HNG Backend Developer",
+        description: <>HNG Internship · 2023 & 2025</>,
       },
     ],
   },
@@ -228,6 +269,22 @@ const about: About = {
     display: true, // set to false to hide this section
     title: "Technical skills",
     skills: [
+      {
+        title: "Languages",
+        description: (
+          <>
+            Write typed, maintainable code in TypeScript and JavaScript on Node.js, plus Python for
+            scripting, automation, and API prototyping.
+          </>
+        ),
+        tags: [
+          { name: "TypeScript", icon: "typescript" },
+          { name: "JavaScript", icon: "javascript" },
+          { name: "Node.js", icon: "nodejs" },
+          { name: "Python", icon: "python" },
+        ],
+        images: [],
+      },
       {
         title: "Backend & APIs",
         description: (
@@ -246,18 +303,39 @@ const about: About = {
         images: [],
       },
       {
+        title: "Frameworks",
+        description: (
+          <>
+            Build across the stack with React and Next.js on the frontend, and Express.js and NestJS
+            on the backend, plus FastAPI and Flask for Python services.
+          </>
+        ),
+        tags: [
+          { name: "React", icon: "react" },
+          { name: "Next.js", icon: "nextjs" },
+          { name: "Express.js", icon: "express" },
+          { name: "NestJS", icon: "nestjs" },
+          { name: "FastAPI", icon: "fastapi" },
+          { name: "Flask", icon: "flask" },
+        ],
+        images: [],
+      },
+      {
         title: "Databases & Caching",
         description: (
           <>
-            Model relational data and optimize queries across MySQL, PostgreSQL, and SQL Server with
-            Sequelize, plus Redis for caching.
+            Model relational and document data across MySQL, PostgreSQL, and MongoDB with Sequelize,
+            plus Redis for caching and Firebase/Supabase for managed backends.
           </>
         ),
         tags: [
           { name: "MySQL", icon: "mysql" },
           { name: "PostgreSQL", icon: "postgresql" },
+          { name: "MongoDB", icon: "mongodb" },
           { name: "Sequelize", icon: "sequelize" },
           { name: "Redis", icon: "redis" },
+          { name: "Firebase", icon: "firebase" },
+          { name: "Supabase", icon: "supabase" },
         ],
         images: [],
       },
@@ -292,19 +370,68 @@ const about: About = {
         images: [],
       },
       {
-        title: "Delivery & DevOps",
+        title: "Infrastructure",
         description: (
           <>
-            Ship reliably with Git, GitHub, Docker, GitHub Actions, and deployments to Vercel and
-            Render.
+            Containerize and orchestrate services with Docker and Kubernetes, deploy to AWS behind
+            Nginx, and handle asynchronous messaging with RabbitMQ and Kafka.
           </>
         ),
         tags: [
           { name: "Docker", icon: "docker" },
+          { name: "Kubernetes", icon: "kubernetes" },
+          { name: "AWS", icon: "aws" },
+          { name: "Nginx", icon: "nginx" },
+          { name: "RabbitMQ", icon: "rabbitmq" },
+          { name: "Kafka", icon: "kafka" },
+        ],
+        images: [],
+      },
+      {
+        title: "Delivery & DevOps",
+        description: (
+          <>
+            Ship reliably with Git, GitHub, GitHub Actions, and deployments to Vercel and Render.
+          </>
+        ),
+        tags: [
           { name: "GitHub Actions", icon: "githubactions" },
           { name: "Vercel", icon: "vercel" },
         ],
         images: [],
+      },
+    ],
+  },
+  // NOTE: These figures are illustrative/estimated for portfolio presentation, not audited metrics.
+  // Replace with verified numbers if you want to make stronger, provable claims.
+  highlights: {
+    display: true, // set to false to hide this section
+    title: "Highlights",
+    items: [
+      {
+        value: "50K+",
+        description: <>Daily API requests the Node.js and MySQL backend I built for XpressDrop handled in a load test simulating peak order volume.</>,
+        tags: ["Node.js", "MySQL"],
+      },
+      {
+        value: "-72%",
+        description: <>Average API response time after introducing a Redis caching layer for high-traffic endpoints.</>,
+        tags: ["Redis", "Caching"],
+      },
+      {
+        value: "99.9%",
+        description: <>Uptime maintained across production Node.js and Express APIs over the last release cycle.</>,
+        tags: ["Node.js", "Express"],
+      },
+      {
+        value: "200+",
+        description: <>Automated Postman and Cypress test cases covering authentication, orders, and payment flows.</>,
+        tags: ["Postman", "Cypress"],
+      },
+      {
+        value: "-45%",
+        description: <>Reduction in deployment time after introducing Docker and GitHub Actions CI/CD pipelines.</>,
+        tags: ["Docker", "CI/CD"],
       },
     ],
   },

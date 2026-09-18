@@ -2,9 +2,11 @@ import {
   Avatar,
   Button,
   Column,
+  Grid,
   Heading,
   Icon,
   IconButton,
+  Line,
   Media,
   Tag,
   Text,
@@ -34,6 +36,15 @@ export default function About() {
       display: about.intro.display,
       items: [],
     },
+    ...(about.highlights
+      ? [
+          {
+            title: about.highlights.title,
+            display: about.highlights.display,
+            items: [],
+          },
+        ]
+      : []),
     {
       title: about.work.title,
       display: about.work.display,
@@ -200,6 +211,46 @@ export default function About() {
             <Column textVariant="body-default-l" fillWidth gap="m" marginBottom="xl">
               {about.intro.description}
             </Column>
+          )}
+
+          {about.highlights?.display && about.highlights.items.length > 0 && (
+            <>
+              <Heading
+                as="h2"
+                id={about.highlights.title}
+                variant="display-strong-s"
+                marginBottom="m"
+              >
+                {about.highlights.title}
+              </Heading>
+              <Grid columns="2" s={{ columns: "1" }} fillWidth gap="16" marginBottom="40">
+                {about.highlights.items.map((item, index) => (
+                  <Column
+                    key={index}
+                    border="neutral-alpha-medium"
+                    radius="l"
+                    padding="l"
+                    gap="8"
+                    fillWidth
+                  >
+                    <Heading variant="display-strong-l">{item.value}</Heading>
+                    <Line background="brand-strong" height="2" maxWidth={3} radius="full" />
+                    <Text variant="body-default-m" onBackground="neutral-weak">
+                      {item.description}
+                    </Text>
+                    {item.tags && item.tags.length > 0 && (
+                      <Text
+                        variant="label-default-s"
+                        onBackground="neutral-weak"
+                        style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+                      >
+                        {item.tags.join(" · ")}
+                      </Text>
+                    )}
+                  </Column>
+                ))}
+              </Grid>
+            </>
           )}
 
           {about.work.display && (
